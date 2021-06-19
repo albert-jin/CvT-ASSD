@@ -1,0 +1,9 @@
+DATA:
+  COCO:
+    COCO_FILE_ROOT: 'D:\image_datasets\coco' # specific where is your coco dataset here
+    NUM_CLASSES: 80 # the coco class categories
+    COCO_LABELS_FILE: 'C:\Users\Super-IdoI\Desktop\python项目仓库\CvT_SSD\data_preprocess\COCO\coco_labels.txt'
+  VOC:
+    VOC_FILE_ROOT: 'D:\image_datasets\voc' # specific where is your voc =>2007&2012 dataset here
+    NUM_CLASSES: 20 # the voc class category
+
