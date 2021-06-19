@@ -1,9 +1,30 @@
 DATA:
   COCO:
-    COCO_FILE_ROOT: 'D:\image_datasets\coco' # specific where is your coco dataset here
+    FILE_ROOT: 'D:\image_datasets\coco' # specific where is your coco dataset here
     NUM_CLASSES: 80 # the coco class categories
     COCO_LABELS_FILE: 'C:\Users\Super-IdoI\Desktop\python项目仓库\CvT_SSD\data_preprocess\COCO\coco_labels.txt'
+    MAX_ITER: 120000
+    LR_STEPS: [80000,100000,120000]
+    PRIOR_BOX:
+      MIN_DIM: 300
+      ASPECT_RATIOS: [[2], [2, 3], [2, 3], [2, 3], [2], [2]]
+      VARIANCE: [0.1,0.2]
+      FEATURE_MAPS: [38, 19, 10, 5, 3, 1]
+      MIN_SIZES: [30, 60, 111, 162, 213, 264]
+      MAX_SIZES: [60, 111, 162, 213, 264, 315]
+      STEPS: [8, 16, 32, 64, 100, 300]
+      CLIP: 'True'  # can not be false, only set 0 or ''.
   VOC:
-    VOC_FILE_ROOT: 'D:\image_datasets\voc' # specific where is your voc =>2007&2012 dataset here
+    FILE_ROOT: 'D:\image_datasets\voc' # specific where is your voc =>2007&2012 dataset here
     NUM_CLASSES: 20 # the voc class category
-
+    MAX_ITER: 400000
+    LR_STEPS: [ 280000, 360000, 400000 ]
+    PRIOR_BOX:
+      MIN_DIM: 300
+      ASPECT_RATIOS: [ [ 2 ], [ 2, 3 ], [ 2, 3 ], [ 2, 3 ], [ 2 ], [ 2 ] ]
+      VARIANCE: [0.1,0.2]
+      FEATURE_MAPS: [38, 19, 10, 5, 3, 1]
+      MIN_SIZES: [21, 45, 99, 153, 207, 261]
+      MAX_SIZES: [45, 99, 153, 207, 261, 315]
+      STEPS: [8, 16, 32, 64, 100, 300]
+      CLIP: 'True'  # can not be false, only set 0 or ''.

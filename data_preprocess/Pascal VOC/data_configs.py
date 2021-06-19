@@ -4,7 +4,7 @@ config_file ='../../global_configs.yaml'
 with open(config_file,'r') as yf:
     yaml_cfg = yaml.load(yf,Loader=yaml.FullLoader)
 try:
-    COCO_ROOT = yaml_cfg['DATA']['VOC']['VOC_FILE_ROOT']
+    COCO_ROOT = yaml_cfg['DATA']['VOC']['FILE_ROOT']
 except Exception as e:
     logging.error('config ERROR in root directory/global_configs.yaml !\t%s'%e.args)
     exit(-1)
