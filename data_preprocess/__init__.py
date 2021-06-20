@@ -1,7 +1,11 @@
-from .coco import COCODetection
+"""
+    集成了dataproprocess的工具包,处理数据集包括COCO2014 &VOC07_12
+"""
+import torch as t
 import numpy as np
 import cv2
-import torch as t
+from COCO.coco import COCODetection, COCO_CLASSES
+from Pascal_VOC.voc import VOCDetection, VOC_CLASSES
 
 detection_collate =lambda batch: (t.stack([sample[0] for sample in batch]), [t.FloatTensor(sample[1]) for sample in batch])
 

@@ -19,6 +19,7 @@ DATA:
     NUM_CLASSES: 20 # the voc class category
     MAX_ITER: 400000
     LR_STEPS: [ 280000, 360000, 400000 ]
+    IMG_SETS: [('2007', 'trainval'), ('2012', 'trainval')]
     PRIOR_BOX:
       MIN_DIM: 300
       ASPECT_RATIOS: [ [ 2 ], [ 2, 3 ], [ 2, 3 ], [ 2, 3 ], [ 2 ], [ 2 ] ]

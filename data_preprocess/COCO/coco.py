@@ -1,4 +1,4 @@
-import logging
+"""预处理COCO2014数据集的工具 COCO2014数据集可在github:https://github.com/albert-jin/CvT-SSD/blob/main/README.md Readme文件 找到并下载"""
 from pycocotools.coco import COCO
 import torch
 import cv2
@@ -6,7 +6,7 @@ import os
 import numpy as np
 from torch.utils.data import Dataset
 
-from .data_configs import *
+from data_configs import *
 
 class COCODetection(Dataset):
     """

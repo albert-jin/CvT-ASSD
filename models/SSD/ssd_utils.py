@@ -1,6 +1,17 @@
 import torch
+from torch.nn import functional as F
 from math import sqrt as sqrt
 from itertools import product as product
+import yaml
+import logging
+
+CONFIG_FILE = '../../global_configs.yaml'
+try:
+    with open(CONFIG_FILE, 'r') as yf:
+        YAML_CONFIG = yaml.load(yf, Loader=yaml.FullLoader)
+except Exception as e:
+    logging.error('config ERROR in root directory/global_configs.yaml !\t%s' % e.args)
+    exit(-1)
 
 '''
     该文件旨在为SSD提供必要的工具函数
@@ -8,8 +19,10 @@ from itertools import product as product
 
 
 class PriorBox:
-    """ PROIR_BOX_CONFIG从yaml读取全局配置中的候选框设置 """
+    '''通过config得到一组候选框'''
+
     def __init__(self, PRIOR_BOX_CONFIG):
+        """ PROIR_BOX_CONFIG从yaml读取全局配置中的候选框设置 """
         self.MIN_DIM = PRIOR_BOX_CONFIG['MIN_DIM']
         self.ASPECT_RATIOS = PRIOR_BOX_CONFIG['ASPECT_RATIOS']
         self.NUM_PRIOR = len(PRIOR_BOX_CONFIG['ASPECT_RATIOS'])
@@ -210,3 +223,135 @@ def nms(boxes, scores, max_overlap=0.5, top_k=200):
         IoU = inter_area / union  # 计算IoU
         idx = idx[IoU.le(max_overlap)]  # 只保留IoU不超过max_overlap的候选框
     return keep, count  # 置信度从高到低的候选框下标0~8372, 剩下框的个数
+
+
+def log_sum_exp(conf_preds):
+    """获取类别分"""
+    conf_max = conf_preds.data.max()
+    return torch.log(torch.sum(torch.exp(conf_preds - conf_max), 1, keepdim=True)) + conf_max
+
+
+class L2Norm(torch.nn.Module):
+    """L2归一化,使模型的输出重新恢复到合理的区间,特征更易表达"""
+
+    def __init__(self, n_channels, gamma_scale, eps=1e-10):
+        super(L2Norm, self).__init__()
+        self.n_channels = n_channels
+        self.eps = eps
+        self.weight = torch.nn.Parameter(torch.Tensor(self.n_channels))
+        torch.nn.init.constant_(self.weight, gamma_scale)
+
+    def forward(self, x):
+        norm = x.pow(2).sum(dim=1, keepdim=True).sqrt() + self.eps
+        x = torch.div(x, norm)
+        return self.weight.unsqueeze(0).unsqueeze(2).unsqueeze(3).expand_as(x) * x
+
+
+class MultiBoxLoss(torch.nn.Module):
+    def __init__(self, num_classes, overlap_thresh, prior_for_matching,
+                 bkg_label, neg_mining, neg_pos, neg_overlap, encode_target,
+                 use_gpu=True):
+        super(MultiBoxLoss, self).__init__()
+        self.num_classes = num_classes
+        self.threshold = overlap_thresh
+        self.use_prior_for_matching = prior_for_matching
+        self.background_label = bkg_label
+        self.do_neg_mining = neg_mining
+        self.negpos_ratio = neg_pos
+        self.neg_overlap = neg_overlap
+        self.encode_target = encode_target
+        self.use_gpu = use_gpu
+        dataset_name ='VOC' if self.num_classes == 21 else "COCO"
+        try:
+            self.variance = YAML_CONFIG['DATA'][dataset_name]['PRIOR_BOX']['VARIANCE']
+        except Exception as e:
+            logging.error(f'error in  directory/global_configs.yaml DATA/{dataset_name}/PRIOR_BOX/VARIANCE !\t%s' % e.args)
+            exit(-1)
+
+    def forward(self, predictions, targets):
+        """计算位置和类别的综合损失 L(x,c,l,g) = (Loss-conf(x, c) + α * Loss-loc(x,l,g)) / N"""
+        loc_data, conf_data, priors = predictions
+        num = loc_data.size(0)
+        priors = priors[:loc_data.size(1), :]
+        num_priors = (priors.size(0))
+        loc_t = torch.Tensor(num, num_priors, 4)
+        conf_t = torch.LongTensor(num, num_priors)
+        for idx in range(num):
+            truths = targets[idx][:, :-1].data
+            labels = targets[idx][:, -1].data
+            defaults = priors.data
+            match(self.threshold, truths, defaults, self.variance, labels,
+                  loc_t, conf_t, idx)
+        if self.use_gpu:
+            loc_t = loc_t.cuda()
+            conf_t = conf_t.cuda()
+        loc_t = torch.autograd.Variable(loc_t, requires_grad=False)
+        conf_t = torch.autograd.Variable(conf_t, requires_grad=False)
+        pos = conf_t > 0
+        pos_idx = pos.unsqueeze(pos.dim()).expand_as(loc_data)
+        loc_p = loc_data[pos_idx].view(-1, 4)
+        loc_t = loc_t[pos_idx].view(-1, 4)
+        loss_l = F.smooth_l1_loss(loc_p, loc_t, size_average=False)
+        batch_conf = conf_data.view(-1, self.num_classes)
+        loss_c = log_sum_exp(batch_conf) - batch_conf.gather(1, conf_t.view(-1, 1))
+        loss_c[pos] = 0
+        loss_c = loss_c.view(num, -1)
+        _, loss_idx = loss_c.sort(1, descending=True)
+        _, idx_rank = loss_idx.sort(1)
+        num_pos = pos.long().sum(1, keepdim=True)
+        num_neg = torch.clamp(self.negpos_ratio * num_pos, max=pos.size(1) - 1)
+        neg = idx_rank < num_neg.expand_as(idx_rank)
+        pos_idx = pos.unsqueeze(2).expand_as(conf_data)
+        neg_idx = neg.unsqueeze(2).expand_as(conf_data)
+        conf_p = conf_data[(pos_idx + neg_idx).gt(0)].view(-1, self.num_classes)
+        targets_weighted = conf_t[(pos + neg).gt(0)]
+        loss_c = F.cross_entropy(conf_p, targets_weighted, size_average=False)
+        N = num_pos.data.sum()
+        loss_l /= N
+        loss_c /= N
+        return loss_l, loss_c
+
+class Detector(torch.nn.Module):
+    def __init__(self, num_classes, bkg_label, top_k, conf_thresh, nms_thresh):
+        super(Detector, self).__init__()
+        self.num_classes = num_classes
+        self.background_label = bkg_label
+        self.top_k = top_k
+        self.conf_thresh = conf_thresh
+        self.nms_thresh = nms_thresh
+        if nms_thresh <= 0:
+            raise ValueError('nms_threshold must be non negative.')
+        dataset_name = 'VOC' if self.num_classes == 21 else "COCO"
+        try:
+            self.variance = YAML_CONFIG['DATA'][dataset_name]['PRIOR_BOX']['VARIANCE']
+        except Exception as e:
+            logging.error(f'error in  directory/global_configs.yaml DATA/{dataset_name}/PRIOR_BOX/VARIANCE !\t%s' % e.args)
+            exit(-1)
+
+    def forward(self, loc_data, conf_data, prior_data):
+        """
+                通过 loc & conf得分计算得出所有物体的真实框与类别
+            loc_data: 每个priorBox位置偏移预测 Shape: [batch,num_priors,4]
+            conf_data: 每个priorBox位置物体类别预测 Shape: [batch,num_priors,num_classes]
+            prior_data: 固定的候选框们 Shape: [1,num_priors,4]
+        """
+        num = loc_data.size(0)
+        num_priors = prior_data.size(0)
+        output = torch.zeros(num, self.num_classes, self.top_k, 5)
+        conf_preds = conf_data.view(num, num_priors,
+                                    self.num_classes).transpose(2, 1)
+        for i in range(num):
+            decoded_boxes = decode(loc_data[i], prior_data, self.variance)
+            conf_scores = conf_preds[i].clone()
+            for cl in range(1, self.num_classes):
+                c_mask = conf_scores[cl].gt(self.conf_thresh)
+                scores = conf_scores[cl][c_mask]
+                if scores.size(0) == 0:
+                    continue
+                l_mask = c_mask.unsqueeze(1).expand_as(decoded_boxes)
+                boxes = decoded_boxes[l_mask].view(-1, 4)
+                ids, count = nms(boxes, scores, self.nms_thresh, self.top_k)
+                output[i, cl, :count] = \
+                    torch.cat((scores[ids[:count]].unsqueeze(1),
+                               boxes[ids[:count]]), 1)
+        return output

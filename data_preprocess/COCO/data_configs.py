@@ -7,7 +7,7 @@ try:
     COCO_ROOT = yaml_cfg['DATA']['COCO']['FILE_ROOT']
     COCO_LABEL_FILE =yaml_cfg['DATA']['COCO']['COCO_LABELS_FILE']
 except Exception as e:
-    logging.error('config ERROR in root directory/global_configs.yaml !\t%s'%e.args)
+    logging.error('config ERROR in COCO file in root directory/global_configs.yaml !\t%s'%e.args)
     exit(-1)
 
 IMAGES ='images'
