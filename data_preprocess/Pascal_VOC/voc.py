@@ -1,11 +1,13 @@
 """预处理voc数据集的工具 voc数据集可在github:https://github.com/albert-jin/CvT-SSD/blob/main/README.md Readme文件 找到并下载"""
-import torch
 import os
 import sys
-import torch.utils.data as data
+import xml.etree.ElementTree as ET
+
 import cv2
 import numpy as np
-import xml.etree.ElementTree as ET
+import torch
+import torch.utils.data as data
+
 if sys.version_info[0] == 2:
     import xml.etree.cElementTree as ET
 from data_configs import *
@@ -73,11 +75,11 @@ class VOCDetection(data.Dataset):
         target = self.voc_annotation_transform(annotation, 1, 1)
         return path_id[1], target
 
-    def pull_image(self,index):
+    def pull_image(self, index):
         """返回第index的图像数据"""
-        path_id =self.path_ids[index]
-        return cv2.imread(self.img_path%path_id, cv2.IMREAD_COLOR)
+        path_id = self.path_ids[index]
+        return cv2.imread(self.img_path % path_id, cv2.IMREAD_COLOR)
 
-    def pull_tensor(self,index):
+    def pull_tensor(self, index):
         """返回第index的图像tensor"""
         return torch.Tensor(self.pull_image(index)).unsqueeze_(0)

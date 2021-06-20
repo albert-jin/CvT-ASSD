@@ -1,12 +1,13 @@
-import logging
-import os
 import torch.nn as nn
+
 from .ssd_utils import *
 
 
 class SSD(nn.Module):
     """SSD 端到端物体探测模型框架 默认feature-extract-base-network: VGG,可通过base_network指定其他骨干网络"""
-    def __init__(self, base_network, extra_layers, loc_layers,conf_layers, num_classes =21, mode='train',size =300, l2Norm =None):
+
+    def __init__(self, base_network, extra_layers, loc_layers, conf_layers, num_classes=21, mode='train', size=300,
+                 l2Norm=None):
         super(SSD, self).__init__()
         self.base_network = nn.ModuleList(base_network)
         self.extra_layers = nn.ModuleList(extra_layers)
@@ -14,14 +15,14 @@ class SSD(nn.Module):
         self.conf_layers = nn.ModuleList(conf_layers)
         self.num_classes = num_classes
         self.detector = Detector(self.num_classes, 0, 200, 0.01, 0.45)
-        self.prior_boxes=self.get_prior_boxes()
-        assert mode in ['train','test','val'], 'Error: only train,test,val can be set-mode!'
+        self.prior_boxes = self.get_prior_boxes()
+        assert mode in ['train', 'test', 'val'], 'Error: only train,test,val can be set-mode!'
         self.mode = mode  # 运行模式,只能为训练/测试
         assert size == 300, f'ERROR: You specified size {self.mode} currently only SSD300 (size=300) is supported!'
         self.size = size
         self.l2Norm = l2Norm or L2Norm(512, 20)
         self.softmax = nn.Softmax(dim=-1)
-    
+
     def get_prior_boxes(self):
         dataset_name = 'VOC' if self.num_classes == 21 else "COCO"
         try:
@@ -52,14 +53,17 @@ class SSD(nn.Module):
             conf_pred.append(cl(x).permute(0, 2, 3, 1).contiguous())
         loc_pred = torch.cat([o.view(o.shape[0], -1) for o in loc_pred], 1)
         conf_pred = torch.cat([o.view(o.shape[0], -1) for o in conf_pred], 1)
-        
+
         if self.mode != "train":
             with torch.no_grad():
-                return self.detector(loc_pred.view(loc_pred.shape[0], -1, 4), self.softmax(conf_pred.view(conf_pred.shape[0], -1,self.num_classes)), self.priors.type(type(x.data)))
+                return self.detector(loc_pred.view(loc_pred.shape[0], -1, 4),
+                                     self.softmax(conf_pred.view(conf_pred.shape[0], -1, self.num_classes)),
+                                     self.priors.type(type(x.data)))
         else:
-            return loc_pred.view(loc_pred.shape[0], -1, 4), conf_pred.view(conf_pred.shape[0], -1, self.num_classes), self.priors
-        
-    def load_weights(self, model_file:str):
+            return loc_pred.view(loc_pred.shape[0], -1, 4), conf_pred.view(conf_pred.shape[0], -1,
+                                                                           self.num_classes), self.priors
+
+    def load_weights(self, model_file: str):
         """从文件导入模型参数"""
         if model_file.endswith('.pkl') or model_file.endswith('.pth'):
             logging.info('Loading weights into ssd model...')
@@ -69,7 +73,6 @@ class SSD(nn.Module):
         else:
             logging.error('Sorry only .pth and .pkl files supported!')
             exit(1)
-
 
 
 class vgg_layers(object):  # model:vgg_d
@@ -89,20 +92,23 @@ class vgg_layers(object):  # model:vgg_d
         priorBoxCountPerPixel = [4, 6, 6, 6, 4, 4]  # 每个点先验框的个数
         conv1_oc = self.vgg_base_layers[21].out_channels
         conv2_oc = self.vgg_base_layers[-2].out_channels
-        loc_layers =[
-            nn.Conv2d(conv1_oc,priorBoxCountPerPixel[0]*4,kernel_size=(3,3),padding=(1,1)),
+        loc_layers = [
+            nn.Conv2d(conv1_oc, priorBoxCountPerPixel[0] * 4, kernel_size=(3, 3), padding=(1, 1)),
             nn.Conv2d(conv2_oc, priorBoxCountPerPixel[1] * 4, kernel_size=(3, 3), padding=(1, 1)),
         ]
-        conf_layers =[
-            nn.Conv2d(conv1_oc, priorBoxCountPerPixel[0]*self.num_classes, kernel_size=(3, 3),
+        conf_layers = [
+            nn.Conv2d(conv1_oc, priorBoxCountPerPixel[0] * self.num_classes, kernel_size=(3, 3),
                       padding=(1, 1)),
             nn.Conv2d(conv2_oc, priorBoxCountPerPixel[1] * self.num_classes, kernel_size=(3, 3),
                       padding=(1, 1))
         ]
-        for index,layer in enumerate(self.vgg_base_layers[1::2], 2):
-            loc_layers.append(nn.Conv2d(layer.out_channels, priorBoxCountPerPixel[index] * 4, kernel_size=(3,3), padding=(1, 1)))
-            conf_layers.append(nn.Conv2d(layer.out_channels,priorBoxCountPerPixel[index] *self.num_classes, kernel_size=(3,3), padding=(1, 1)))
-        return loc_layers,conf_layers
+        for index, layer in enumerate(self.vgg_base_layers[1::2], 2):
+            loc_layers.append(
+                nn.Conv2d(layer.out_channels, priorBoxCountPerPixel[index] * 4, kernel_size=(3, 3), padding=(1, 1)))
+            conf_layers.append(
+                nn.Conv2d(layer.out_channels, priorBoxCountPerPixel[index] * self.num_classes, kernel_size=(3, 3),
+                          padding=(1, 1)))
+        return loc_layers, conf_layers
 
     def get_vgg_base_layers(self, in_channels=3, use_batch_norm=False):  # 默认vgg 输入channels 是RGB 3通道
         """
@@ -151,7 +157,7 @@ class vgg_layers(object):  # model:vgg_d
         layers.extend([pool5, conv6, nn.ReLU(inplace=True), conv7, nn.ReLU(inplace=True)])
         return layers
 
-    def get_vgg_extras_layers(self, in_channels = 1024):  # 最后一层的通道默认1024
+    def get_vgg_extras_layers(self, in_channels=1024):  # 最后一层的通道默认1024
         """
             在骨干网络末端追加几层卷积用来获取预测值并拼接
             项目根目录下 introduce/SSD从1X1X1024后面的8次卷积.png 了解更多.
@@ -165,4 +171,6 @@ class vgg_layers(object):  # model:vgg_d
                 nn.Conv2d(256, 128, kernel_size=(1, 1), stride=(1, 1)),
                 nn.Conv2d(128, 256, kernel_size=(3, 3), stride=(1, 1))]
 
+
 def build_ssd_from_vgg():
+    pass

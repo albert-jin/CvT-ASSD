@@ -1,9 +1,10 @@
-import torch
-from torch.nn import functional as F
-from math import sqrt as sqrt
-from itertools import product as product
-import yaml
 import logging
+from itertools import product as product
+from math import sqrt as sqrt
+
+import torch
+import yaml
+from torch.nn import functional as F
 
 CONFIG_FILE = '../../global_configs.yaml'
 try:
@@ -261,11 +262,12 @@ class MultiBoxLoss(torch.nn.Module):
         self.neg_overlap = neg_overlap
         self.encode_target = encode_target
         self.use_gpu = use_gpu
-        dataset_name ='VOC' if self.num_classes == 21 else "COCO"
+        dataset_name = 'VOC' if self.num_classes == 21 else "COCO"
         try:
             self.variance = YAML_CONFIG['DATA'][dataset_name]['PRIOR_BOX']['VARIANCE']
         except Exception as e:
-            logging.error(f'error in  directory/global_configs.yaml DATA/{dataset_name}/PRIOR_BOX/VARIANCE !\t%s' % e.args)
+            logging.error(
+                f'error in  directory/global_configs.yaml DATA/{dataset_name}/PRIOR_BOX/VARIANCE !\t%s' % e.args)
             exit(-1)
 
     def forward(self, predictions, targets):
@@ -311,6 +313,7 @@ class MultiBoxLoss(torch.nn.Module):
         loss_c /= N
         return loss_l, loss_c
 
+
 class Detector(torch.nn.Module):
     def __init__(self, num_classes, bkg_label, top_k, conf_thresh, nms_thresh):
         super(Detector, self).__init__()
@@ -325,7 +328,8 @@ class Detector(torch.nn.Module):
         try:
             self.variance = YAML_CONFIG['DATA'][dataset_name]['PRIOR_BOX']['VARIANCE']
         except Exception as e:
-            logging.error(f'error in  directory/global_configs.yaml DATA/{dataset_name}/PRIOR_BOX/VARIANCE !\t%s' % e.args)
+            logging.error(
+                f'error in  directory/global_configs.yaml DATA/{dataset_name}/PRIOR_BOX/VARIANCE !\t%s' % e.args)
             exit(-1)
 
     def forward(self, loc_data, conf_data, prior_data):
