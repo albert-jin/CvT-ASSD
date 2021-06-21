@@ -1,2 +1,4 @@
 .idea
 .gitignore
+models/VGG_SSD/weights
+**/__pycache__/

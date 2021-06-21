@@ -21,7 +21,6 @@ except Exception as e:
 
 class PriorBox:
     '''通过config得到一组候选框'''
-
     def __init__(self, PRIOR_BOX_CONFIG):
         """ PROIR_BOX_CONFIG从yaml读取全局配置中的候选框设置 """
         self.MIN_DIM = PRIOR_BOX_CONFIG['MIN_DIM']
@@ -44,16 +43,12 @@ class PriorBox:
             for k, f in enumerate(self.FEATURE_MAPS):
                 for i, j in product(range(f), repeat=2):
                     f_k = self.MIN_DIM / self.STEPS[k]
-
                     cx = (j + 0.5) / f_k
                     cy = (i + 0.5) / f_k
-
                     s_k = self.MIN_SIZES[k] / self.MIN_DIM
                     mean += [cx, cy, s_k, s_k]
-
                     s_k_prime = sqrt(s_k * (self.MAX_SIZES[k] / self.MIN_DIM))
                     mean += [cx, cy, s_k_prime, s_k_prime]
-
                     for ar in self.ASPECT_RATIOS[k]:
                         mean += [cx, cy, s_k * sqrt(ar), s_k / sqrt(ar)]
                         mean += [cx, cy, s_k / sqrt(ar), s_k * sqrt(ar)]
@@ -88,7 +83,7 @@ def intersection_of(boxes_a, boxes_b):
     :param box_b: 框的集合b
     :return:
     '''
-    box_a_sum, box_b_sum = boxes_a.size(0), boxes_b.size(0)
+    box_a_sum, box_b_sum = boxes_a.shape[0], boxes_b.shape[0]
     max_xy = torch.min(boxes_a[:, 2:].unsqueeze(1).expand(box_a_sum, box_b_sum, 2),
                        boxes_b[:, 2:].unsqueeze(0).expand(box_a_sum, box_b_sum, 2))
     min_xy = torch.max(boxes_a[:, :2].unsqueeze(1).expand(box_a_sum, box_b_sum, 2),
@@ -110,7 +105,7 @@ def jaccard(boxes_a, boxes_b):
     area_b = ((boxes_b[:, 2] - boxes_b[:, 0]) *
               (boxes_b[:, 3] - boxes_b[:, 1])).unsqueeze(0).expand_as(inter_area)  # [A,B]
     union_area = area_a + area_b - inter_area
-    return torch.reshape(inter_area / union_area, (boxes_a.size(0), boxes_b.size(0)))
+    return torch.reshape(inter_area / union_area, (boxes_a.shape[0], boxes_b.shape[0]))
 
 
 def match(threshold, truth_boxes, priors_boxes, variances, labels, loc_t, conf_t, idx):
@@ -126,6 +121,7 @@ def match(threshold, truth_boxes, priors_boxes, variances, labels, loc_t, conf_t
     :param idx:
     :return:
     """
+    priors_boxes = center2point(priors_boxes)
     overlaps = jaccard(boxes_a=truth_boxes, boxes_b=priors_boxes)  # shape: (truth_boxes_num,priors_boxes_num)
     best_prior_overlap, best_prior_idx = overlaps.max(1, keepdim=True)  # 找出和当前每个truth_box最重叠的priors_box
     best_prior_overlap.squeeze_(1)  # =>一维
@@ -134,7 +130,7 @@ def match(threshold, truth_boxes, priors_boxes, variances, labels, loc_t, conf_t
     best_truth_overlap.squeeze_(0)  # =>一维
     best_truth_idx.squeeze_(0)  # =>一维
     best_truth_overlap.index_fill_(0, best_prior_idx, 2)  # 将与truth_box最重叠的priors_box的重叠度变成2
-    for j in range(best_prior_idx.size(0)):
+    for j in range(best_prior_idx.shape[0]):
         best_truth_idx[best_prior_idx[j]] = j  # 将每个与truth_box最重叠的priors_box的里面的值变成对应的truth_box的下标
     matches = truth_boxes[best_truth_idx]  # 获取每个priors_box最重叠的truth_box shape:(priors_box_num,4)
     conf = labels[best_truth_idx] + 1  # 获取每个priors_box最可能的物体类别 Shape: (num_priors,)
@@ -185,7 +181,7 @@ def nms(boxes, scores, max_overlap=0.5, top_k=200):
     :param top_k:
     :return:
     '''
-    keep = scores.new(scores.size(0)).zero_().long()  # 先默认所有prior_box是背景下标
+    keep = scores.new(scores.shape[0]).zero_().long()  # 先默认所有prior_box是背景下标
     if boxes.numel() == 0:  # 如果没有盒子,则都是背景
         return keep
     x1 = boxes[:, 0]  # 所有prior_box左上角x坐标
@@ -195,23 +191,19 @@ def nms(boxes, scores, max_overlap=0.5, top_k=200):
     area = torch.mul(x2 - x1, y2 - y1)  # 所有prior_box的面积
     _, idx = scores.sort(0)  # 置信分从小到大的prior_box下标
     idx = idx[-top_k:]  # 置信分前top_k大的prior_box下标,最大的为[-1]
-    xx1 = boxes.new()
-    yy1 = boxes.new()
-    xx2 = boxes.new()
-    yy2 = boxes.new()
     count = 0
     while idx.numel() > 0:  # 对top_k个prior_box遍历
         i = idx[-1]  # 拿最后一个,最大分数的
         keep[count] = i  # 置信度最大的prior_box下标写到keep
         count += 1
-        if idx.size(0) == 1:
+        if idx.shape[0] == 1:
             break
         idx = idx[:-1]  # 删掉最后一个
         # 把分数第一以下的坐标写入
-        torch.index_select(x1, 0, idx, out=xx1)
-        torch.index_select(y1, 0, idx, out=yy1)
-        torch.index_select(x2, 0, idx, out=xx2)
-        torch.index_select(y2, 0, idx, out=yy2)
+        xx1 =torch.index_select(x1, 0, idx)
+        yy1 =torch.index_select(y1, 0, idx)
+        xx2 =torch.index_select(x2, 0, idx)
+        yy2 =torch.index_select(y2, 0, idx)
         # 截断长宽
         xx1 = torch.clamp(xx1, min=x1[i])
         yy1 = torch.clamp(yy1, min=y1[i])
@@ -273,9 +265,9 @@ class MultiBoxLoss(torch.nn.Module):
     def forward(self, predictions, targets):
         """计算位置和类别的综合损失 L(x,c,l,g) = (Loss-conf(x, c) + α * Loss-loc(x,l,g)) / N"""
         loc_data, conf_data, priors = predictions
-        num = loc_data.size(0)
-        priors = priors[:loc_data.size(1), :]
-        num_priors = (priors.size(0))
+        num = loc_data.shape[0]
+        priors = priors[:loc_data.shape[1], :]
+        num_priors = (priors.shape[0])
         loc_t = torch.Tensor(num, num_priors, 4)
         conf_t = torch.LongTensor(num, num_priors)
         for idx in range(num):
@@ -289,7 +281,7 @@ class MultiBoxLoss(torch.nn.Module):
             conf_t = conf_t.cuda()
         loc_t = torch.autograd.Variable(loc_t, requires_grad=False)
         conf_t = torch.autograd.Variable(conf_t, requires_grad=False)
-        pos = conf_t > 0
+        pos = torch.gt(conf_t,0)
         pos_idx = pos.unsqueeze(pos.dim()).expand_as(loc_data)
         loc_p = loc_data[pos_idx].view(-1, 4)
         loc_t = loc_t[pos_idx].view(-1, 4)
@@ -301,8 +293,8 @@ class MultiBoxLoss(torch.nn.Module):
         _, loss_idx = loss_c.sort(1, descending=True)
         _, idx_rank = loss_idx.sort(1)
         num_pos = pos.long().sum(1, keepdim=True)
-        num_neg = torch.clamp(self.negpos_ratio * num_pos, max=pos.size(1) - 1)
-        neg = idx_rank < num_neg.expand_as(idx_rank)
+        num_neg = torch.clamp(self.negpos_ratio * num_pos, max=pos.shape[1] - 1)
+        neg = torch.lt(idx_rank, num_neg.expand_as(idx_rank))
         pos_idx = pos.unsqueeze(2).expand_as(conf_data)
         neg_idx = neg.unsqueeze(2).expand_as(conf_data)
         conf_p = conf_data[(pos_idx + neg_idx).gt(0)].view(-1, self.num_classes)
@@ -315,10 +307,9 @@ class MultiBoxLoss(torch.nn.Module):
 
 
 class Detector(torch.nn.Module):
-    def __init__(self, num_classes, bkg_label, top_k, conf_thresh, nms_thresh):
+    def __init__(self, num_classes, top_k, conf_thresh, nms_thresh):
         super(Detector, self).__init__()
         self.num_classes = num_classes
-        self.background_label = bkg_label
         self.top_k = top_k
         self.conf_thresh = conf_thresh
         self.nms_thresh = nms_thresh
@@ -339,23 +330,20 @@ class Detector(torch.nn.Module):
             conf_data: 每个priorBox位置物体类别预测 Shape: [batch,num_priors,num_classes]
             prior_data: 固定的候选框们 Shape: [1,num_priors,4]
         """
-        num = loc_data.size(0)
-        num_priors = prior_data.size(0)
+        num = loc_data.shape[0]
+        num_priors = prior_data.shape[0]
         output = torch.zeros(num, self.num_classes, self.top_k, 5)
-        conf_preds = conf_data.view(num, num_priors,
-                                    self.num_classes).transpose(2, 1)
+        conf_preds = conf_data.view(num, num_priors,self.num_classes).transpose(2, 1)
         for i in range(num):
             decoded_boxes = decode(loc_data[i], prior_data, self.variance)
             conf_scores = conf_preds[i].clone()
             for cl in range(1, self.num_classes):
                 c_mask = conf_scores[cl].gt(self.conf_thresh)
                 scores = conf_scores[cl][c_mask]
-                if scores.size(0) == 0:
+                if scores.shape[0] == 0:
                     continue
                 l_mask = c_mask.unsqueeze(1).expand_as(decoded_boxes)
                 boxes = decoded_boxes[l_mask].view(-1, 4)
                 ids, count = nms(boxes, scores, self.nms_thresh, self.top_k)
-                output[i, cl, :count] = \
-                    torch.cat((scores[ids[:count]].unsqueeze(1),
-                               boxes[ids[:count]]), 1)
+                output[i, cl, :count] = torch.cat((scores[ids[:count]].unsqueeze(1), boxes[ids[:count]]), 1)
         return output

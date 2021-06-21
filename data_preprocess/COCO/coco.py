@@ -7,7 +7,7 @@ import torch
 from pycocotools.coco import COCO
 from torch.utils.data import Dataset
 
-from data_configs import *
+from .data_configs import *
 
 
 class COCODetection(Dataset):

@@ -10,7 +10,7 @@ import torch.utils.data as data
 
 if sys.version_info[0] == 2:
     import xml.etree.cElementTree as ET
-from data_configs import *
+from .data_configs import *
 
 
 class VOCDetection(data.Dataset):
@@ -18,7 +18,7 @@ class VOCDetection(data.Dataset):
         self.img_transform = img_transform
         self.dataset_name = dataset_name
         self.path_ids = []
-        for (year, name) in image_sets:
+        for [year, name] in image_sets:
             voc20xx_path = os.path.join(voc_root, 'VOC' + year)
             for line in open(os.path.join(voc20xx_path, 'ImageSets', 'Main', name + '.txt')):
                 self.path_ids.append((voc20xx_path, line.strip()))
