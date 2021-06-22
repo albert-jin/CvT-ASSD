@@ -21,6 +21,8 @@ please add the **CvT_SSD/model/** directory into sources Root caused by the refe
 inside of model directory 
    
 4. you should download the pytorch parameters file postfix by ".pth" and move into **models/CvT/weights**
-such as: ![显示失败!](/introduce/项目结构.PNG ''CvT权重文件示例'')
+such as:
+   
+![显示失败!](https://github.com/albert-jin/CvT-ASSD_private/tree/main/introduce/项目结构.PNG ''CvT权重文件示例'')
    
 
