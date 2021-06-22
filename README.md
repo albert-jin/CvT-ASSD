@@ -1,6 +1,10 @@
 # CvT-SSD
 
-### code-website: *https://github.com/albert-jin/CvT-SSD*
+### code-website: 
+*https://github.com/albert-jin/CvT-SSD*
+
+### project architecture:
+<img src="https://raw.githubusercontent.com/albert-jin/CvT-ASSD_private/main/introduce/%E9%A1%B9%E7%9B%AE%E7%BB%93%E6%9E%84.PNG?token=ANI4SHCR4GLWTPA6OZ5X55DA2FGIK" alt="显示失败(CvT权重文件示例)" width="250px">
 
 ### Mentions
 
@@ -20,9 +24,6 @@
 please add the **CvT_SSD/model/** directory into sources Root caused by the reference of many codes 
 inside of model directory 
    
-4. you should download the pytorch parameters file postfix by ".pth" and move into **models/CvT/weights**
-such as:
-   
-![显示失败!](https://github.com/albert-jin/CvT-ASSD_private/tree/main/introduce/项目结构.PNG ''CvT权重文件示例'')
+4. you should download the pytorch parameters file postfix by ".pth" and move into **models/CvT/weights** like **项目结构.PNG**
    
 

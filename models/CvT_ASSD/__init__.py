@@ -1,0 +1,1 @@
+from cvt_assd import build_assd_from_cvt

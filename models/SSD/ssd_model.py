@@ -21,8 +21,9 @@ class SSD(nn.Module):
         self.prior_boxes = self.get_prior_boxes()
         assert mode in ['train', 'test', 'val'], 'Error: only train,test,val can be set-mode!'
         self.mode = mode  # 运行模式,只能为训练/测试
-        assert size == 300, f'ERROR: You specified size {self.mode} currently only SSD300 (size=300) is supported!'
-        self.size = size
+        '''size 为模型的输入长宽,只有在vgg_ssd里面需强制为300'''
+        # assert size == 300, f'ERROR: You specified size {self.mode} currently only SSD300 (size=300) is supported!'
+        # self.size = size
         self.l2Norm = l2Norm
         self.l2NormIdx = l2NormIdx
         # only use softmax &detector when in test mode.
@@ -39,7 +40,7 @@ class SSD(nn.Module):
                     prior_boxes =prior_boxes.cuda()
                 return prior_boxes
         except Exception as e:
-            logging.error(f'ERROR in directory/global_configs.yaml DATA/{dataset_name}/PRIOR_BOX .\t{e.args}')
+            logging.error(f'ERROR in directory/data_configs.yaml DATA/{dataset_name}/PRIOR_BOX .\t{e.args}')
             exit(-1)
 
     def forward(self, x):

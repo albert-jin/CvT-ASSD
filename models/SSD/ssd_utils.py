@@ -6,12 +6,12 @@ import torch
 import yaml
 from torch.nn import functional as F
 
-CONFIG_FILE = '../../global_configs.yaml'
+CONFIG_FILE = '../../data_preprocess/data_configs.yaml'
 try:
     with open(CONFIG_FILE, 'r') as yf:
         YAML_CONFIG = yaml.load(yf, Loader=yaml.FullLoader)
 except Exception as e:
-    logging.error('config ERROR in root directory/global_configs.yaml !\t%s' % e.args)
+    logging.error('config ERROR in root directory/data_configs.yaml !\t%s' % e.args)
     exit(-1)
 
 '''
@@ -259,7 +259,7 @@ class MultiBoxLoss(torch.nn.Module):
             self.variance = YAML_CONFIG['DATA'][dataset_name]['PRIOR_BOX']['VARIANCE']
         except Exception as e:
             logging.error(
-                f'error in  directory/global_configs.yaml DATA/{dataset_name}/PRIOR_BOX/VARIANCE !\t%s' % e.args)
+                f'error in  directory/data_configs.yaml DATA/{dataset_name}/PRIOR_BOX/VARIANCE !\t%s' % e.args)
             exit(-1)
 
     def forward(self, predictions, targets):
@@ -320,7 +320,7 @@ class Detector(torch.nn.Module):
             self.variance = YAML_CONFIG['DATA'][dataset_name]['PRIOR_BOX']['VARIANCE']
         except Exception as e:
             logging.error(
-                f'error in  directory/global_configs.yaml DATA/{dataset_name}/PRIOR_BOX/VARIANCE !\t%s' % e.args)
+                f'error in  directory/data_configs.yaml DATA/{dataset_name}/PRIOR_BOX/VARIANCE !\t%s' % e.args)
             exit(-1)
 
     def forward(self, loc_data, conf_data, prior_data):

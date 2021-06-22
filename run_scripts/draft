@@ -1,0 +1,13 @@
+from torch.distributed import init_process_group
+from torch.nn.parallel import DistributedDataParallel
+# DataParallel 会带来显存的使用不平衡，而且碰到大的任务，时间和能力上都很受限，使用 DistributedDataParallel 较好
+parser.add_argument('--parallel-train-ips',default='tcp://127.0.01:8888', type=str, help='distributed training init process')
+
+保存模型：
+torch.save(net.module.state_dict(), path)
+加载模型：
+net=nn.DataParallel(Resnet18())
+net.load_state_dict(torch.load(path))
+net=net.module
+优化器使用：
+optimizer.step() --> optimizer.module.step()
