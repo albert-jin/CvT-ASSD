@@ -33,7 +33,7 @@ from plot_funcs import show_images_bounding_boxes
 from data_preprocess import VOC_CLASSES
 
 voc_loader = VOCDetection()
-picture_idxs = [randint(0, len(voc_loader) - 1) for _ in range(3)]
+picture_idxs = [randint(0, len(voc_loader) - 1) for _ in range(10)]
 
 
 def img_transform(img):
