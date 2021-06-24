@@ -8,6 +8,7 @@ with open(config_file, 'r') as yf:
 try:
     VOC_ROOT = yaml_cfg['DATA']['VOC']['FILE_ROOT']
     VOC_IMG_SETS = yaml_cfg['DATA']['VOC']['IMG_SETS']
+    VOC_TEST_IMG_SETS = yaml_cfg['DATA']['VOC']['TEST07_IMG_SETS']
 except Exception as e:
     logging.error('config ERROR in VOC file in root directory/data_configs.yaml !\t%s' % e.args)
     exit(-1)

@@ -21,6 +21,7 @@ DATA:
 #    MAX_ITER: 400000
 #    LR_STEPS: [ 280000, 360000, 400000 ]
     IMG_SETS: [ ['2007', 'trainval'], ['2012', 'trainval'] ]
+    TEST07_IMG_SETS: [ ['2007_test', 'test'] ]
     PRIOR_BOX:
       MIN_DIM: 300
       ASPECT_RATIOS: [ [ 2 ], [ 2, 3 ], [ 2, 3 ], [ 2, 3 ], [ 2 ], [ 2 ] ]

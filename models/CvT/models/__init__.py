@@ -1,0 +1,1 @@
+from cvt_no_cls_token.cvt import ConvolutionVisionTransformer

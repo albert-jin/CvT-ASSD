@@ -9,15 +9,19 @@ from torch.backends import cudnn
 from visdom import Visdom
 import logging
 from models.SSD.ssd_utils import MultiBoxLoss
-from data_preprocess import COCODetection,VOCDetection
-from utils import collect_fn, update_chart
+from data_preprocess import COCODetection, VOCDetection
+from utils import collect_fn, update_chart, output2maP, update_vali_chart
+from data_preprocess.Pascal_VOC.data_configs import VOC_TEST_IMG_SETS, VOC_CLASSES
+from gluoncv.utils.metrics.voc_detection import VOC07MApMetric
+# from gluoncv.utils.metrics.coco_detection import COCODetectionMetric
 
 GPU_ACCESS = t.cuda.is_available()
 GPU_COUNTS = t.cuda.device_count()
-GPU_DEVICES =[idx for idx in range(GPU_COUNTS)]
+GPU_DEVICES = [idx for idx in range(GPU_COUNTS)]
 
 LOGGING_ITERS = 10
-SAVING_ITERS =10000
+SAVING_ITERS = 10000
+
 
 def get_args():
     # 指定dataset, 训练的iteration数(不是epoch), batch_size数, 是否用GPU(有GPU则默认用GPU)
@@ -32,10 +36,11 @@ def get_args():
     # 如果其他显卡被占用,请在此指定使用的GPU卡序号, 默认使用机器上所有卡
     parser.add_argument('--gpu-ids', default=GPU_DEVICES, type=list, help='which gpus for training.')
     parser.add_argument('--base-network-resume-path', default=None, type=str, help='path of base-network to resume, '
-                        'you must give it when model-resume-path is None!')
+                                                                                   'you must give it when model-resume-path is None!')
     parser.add_argument('--model-resume-path', default=None, type=str, help='path of checkpoint model file to resume '
                                                                             'training. if not, train from scratch')
-    parser.add_argument('--model-save-path', default=os.path.abspath('./weights/'), type=str, help='path of trained model directory')
+    parser.add_argument('--model-save-path', default=os.path.abspath('./weights/'), type=str,
+                        help='path of trained model directory')
 
     parser.add_argument('--batch-size', default=32, type=int, help='batch size for training')
     parser.add_argument('--iter-count', default=None, type=int,
@@ -46,7 +51,9 @@ def get_args():
     parser.add_argument('--weight-decay', default=5e-4, type=float, help='Weight decay for SGD')
     parser.add_argument('--gamma', default=0.1, type=float, help='Gamma update for SGD')
 
-    parser.add_argument('--visdom',default=False,type=bool,help='whether see running log in website.')
+    parser.add_argument('--visdom', default=False, type=bool, help='whether see running log in website.')
+    parser.add_argument('--logger-path', default=os.path.abspath('./run_logs/'), type=str,
+                        help='path of logging directory')
 
     return parser.parse_args()
 
@@ -115,10 +122,11 @@ def gpu_setting(parser):
 
 def train():
     # 训练准备
+    global vis_
     parser = get_args()
     gpu_setting(parser)
-    gpu_devices =[idx for idx,_ in enumerate(parser.gpu_ids)]
-    GPU_TRAIN =parser.use_gpu and GPU_ACCESS
+    gpu_devices = [idx for idx, _ in enumerate(parser.gpu_ids)]
+    GPU_TRAIN = parser.use_gpu and GPU_ACCESS
     PARAELLEL_FLAG = len(parser.gpu_ids) > 0 and GPU_TRAIN  # 是否分布式训练
     network = get_model(parser)
     optimizer = t.optim.SGD(network.parameters(), lr=parser.learning_rate, momentum=parser.momentum,
@@ -132,50 +140,79 @@ def train():
                              neg_mining=True, neg_pos=3, neg_overlap=0.5, encode_target=False,
                              use_gpu=GPU_TRAIN)
     if PARAELLEL_FLAG:
-        network = t.nn.DataParallel(network, device_ids=gpu_devices,output_device=gpu_devices[0])
-        optimizer = t.nn.DataParallel(optimizer, device_ids=gpu_devices,output_device=gpu_devices[0])
+        network = t.nn.DataParallel(network, device_ids=gpu_devices, output_device=gpu_devices[0])
+        optimizer = t.nn.DataParallel(optimizer, device_ids=gpu_devices, output_device=gpu_devices[0])
     network.train()
 
-    # 准备数据
-    dataset =VOCDetection() if 'VOC' == parser.dataset else COCODetection()
-    data_count =len(dataset)
-    data_loader = DataLoader(dataset,batch_size=parser.batch_size,shuffle=True,num_workers=2, collate_fn=collect_fn, pin_memory=True)
+    # 准备训练数据
+    dataset = VOCDetection() if 'VOC' == parser.dataset else COCODetection()
+    data_count = len(dataset)
+    data_loader = DataLoader(dataset, batch_size=parser.batch_size, shuffle=True, num_workers=2, collate_fn=collect_fn,
+                             pin_memory=True)
     data_iterator = iter(data_loader)
+
+    # 准备测试数据
+    test_dataset =VOCDetection(image_sets=VOC_TEST_IMG_SETS,dataset_name='VOC07_test')  # 测试集都用VOC2007_test
+    test_data_count =len(test_dataset)
+    test_data_loader = DataLoader(test_dataset, batch_size=parser.batch_size, shuffle=True, num_workers=2, collate_fn=collect_fn,
+                             pin_memory=True)
+    test_data_iterator =iter(test_data_loader)
 
     if parser.visdom:
         vis_ = Visdom()
-        vis_title =parser.network+' training on '+dataset.dataset_name
+        vis_title = parser.network + ' training on ' + dataset.dataset_name
         vis_legend = ['Loc Loss', 'Conf Loss', 'Total Loss']
-        vis_iter_opts ={'xlabel':'Iteration','ylabel':'Loss','title':vis_title,'legend':vis_legend}
+        vis_iter_opts = {'xlabel': 'Iteration', 'ylabel': 'Loss', 'title': vis_title, 'legend': vis_legend}
         vis_epoch_opts = {'xlabel': 'Iteration', 'ylabel': 'Loss', 'title': vis_title, 'legend': vis_legend}
-        iter_plot,epoch_plot =vis_.line(X=[0],Y=[[0,0,0]],opts=vis_iter_opts), vis_.line(X=[0],Y=[[0,0,0]],opts=vis_epoch_opts)  #数据从iter1 & epoch1 开始
+        iter_plot, epoch_plot = vis_.line(X=[0], Y=[[0, 0, 0]], opts=vis_iter_opts), vis_.line(X=[0], Y=[[0, 0, 0]],
+                                                                                             opts=vis_epoch_opts)  # 数据从iter1 & epoch1 开始
+        vis_vali_opts ={'xlabel': 'Iteration', 'ylabel': '(m)aP', 'title': vis_title, 'legend': VOC_CLASSES+('maP(mean average precision)',)}
+        vali_plot =vis_.line(X=[0], Y=[[0, 0, 0,0, 0, 0,0, 0, 0,0, 0, 0,0, 0, 0,0, 0, 0,0, 0, 0,]], opts=vis_vali_opts)  # 定时测试模型在VOC2007测试集上的maP指标
+    # 日志文件记录 测试效果
+    vali_logger =None
+    if parser.logger_path:
+        if os.path.isdir(parser.logger_path):
+            vali_logger =logging.getLogger('-'.join([parser.network, dataset.dataset_name, time.asctime().replace(' ','_')]))
+            handler = logging.FileHandler(parser.logger_path, encoding='UTF-8')
+            console_ = logging.StreamHandler()
+            console_.setLevel(logging.INFO)
+            handler.setLevel(logging.INFO)
+            formatter = logging.Formatter('%(asctime)s - %(message)s')
+            handler.setFormatter(formatter)
+            console_.setFormatter(formatter)
+            vali_logger.addHandler(handler)
+            vali_logger.addHandler(console_)
+        else:
+            logging.error('--logger-path is not a directory, can`t save logs!')
+            exit(-1)
 
     # 开始训练
-    epoch_loc_loss =0
-    epoch_conf_loss =0
-    iter_loc_loss =0
-    iter_conf_loss =0
+    epoch_loc_loss = 0
+    epoch_conf_loss = 0
+    iter_loc_loss = 0
+    iter_conf_loss = 0
     iters_count_per_epoch = data_count // parser.batch_size  # 每个epoch会遍历多少轮
-    epoch_idx = (parser.start_iter_idx *parser.batch_size // data_count) +1 # 通过 当前iteration与数据量大小计算epoch_idx
+    epoch_idx = (parser.start_iter_idx * parser.batch_size // data_count) + 1  # 通过 当前iteration与数据量大小计算epoch_idx
+    test_metric = VOC07MApMetric(iou_thresh=0.5,class_names=VOC_CLASSES)
     epoch_start_time = time.time()
     iter_start_time = time.time()
-    for iter_idx in range(parser.start_iter_idx,iterations):
-        iter_idx_ =iter_idx+1
+    for iter_idx in range(parser.start_iter_idx, iterations):
+        iter_idx_ = iter_idx + 1
         # 准备一个batch数据
-        images,targets =next(data_iterator)
+        images, targets = next(data_iterator)
         if GPU_TRAIN:
-            images =images.cuda()
-            targets =[target.cuda() for target in targets]
+            images = images.cuda()
+            targets = [target.cuda() for target in targets]
         # 调整学习率
         if iter_idx_ in lr_steps:
-            learning_rate_ = parser.learning_rate*(parser.gamma**lr_steps.index(iter_idx_))
+            learning_rate_ = parser.learning_rate * (parser.gamma ** lr_steps.index(iter_idx_))
             for param in optimizer.param_groups:
-                param['lr'] =learning_rate_
+                param['lr'] = learning_rate_
         ###########training##############
-        output_ =network(images)
+        output_ = network(images)
         loss_loc, loss_conf = criterion(output_, targets)
-        epoch_loc_loss +=loss_loc.data[0]
-        epoch_conf_loss +=loss_conf.data[0]
+        epoch_loc_loss += loss_loc.data[0]
+        epoch_conf_loss += loss_conf.data[0]
         iter_loc_loss += loss_loc.data[0]
         iter_conf_loss += loss_conf.data[0]
         loss_sum = loss_loc + loss_conf
@@ -185,38 +222,62 @@ def train():
         ############training#############
         # when iteration goes by per-LOGGING_ITERS.
         if iter_idx_ % LOGGING_ITERS == 0:
-            iter_end_time =time.time()
+            iter_end_time = time.time()
             iter_spend_time = iter_end_time - iter_start_time
             logging.info('Iterations: [{0}]==[{1}], Epoch: [{2}], Speed: {3} pictures/sec, avg_iter_loc_loss: {4}, avg'
-                         '_iter_conf_loss: {5}.'.format(iter_idx_-LOGGING_ITERS+1,iter_idx_,epoch_idx,parser.batch_size
-                         * LOGGING_ITERS /iter_spend_time,iter_loc_loss/LOGGING_ITERS,iter_conf_loss/LOGGING_ITERS))
-            iter_conf_loss =0
-            iter_loc_loss =0
+                         '_iter_conf_loss: {5}.'.format(iter_idx_ - LOGGING_ITERS + 1, iter_idx_, epoch_idx,
+                                                        parser.batch_size
+                                                        * LOGGING_ITERS / iter_spend_time,
+                                                        iter_loc_loss / LOGGING_ITERS, iter_conf_loss / LOGGING_ITERS))
+            iter_conf_loss = 0
+            iter_loc_loss = 0
 
         if parser.visdom:
             update_chart(visdom=vis_, window_=iter_plot, step_idx=iter_idx_, loc_loss=loss_loc.data[0],
                          conf_loss=loss_conf.data[0])
         if iter_idx_ % iters_count_per_epoch == 0:  # when in a new epoch.
-         # 添加当前epoch的loss汇总到 epoch_plot 图中
-            avg_epoch_loc_loss =epoch_loc_loss / iters_count_per_epoch
-            avg_epoch_conf_loss =epoch_conf_loss /iters_count_per_epoch
+            # 添加当前epoch的loss汇总到 epoch_plot 图中
+            avg_epoch_loc_loss = epoch_loc_loss / iters_count_per_epoch
+            avg_epoch_conf_loss = epoch_conf_loss / iters_count_per_epoch
             if parser.visdom:
-                update_chart(visdom=vis_,window_=epoch_plot,step_idx=epoch_idx,loc_loss=avg_epoch_loc_loss,conf_loss=avg_epoch_conf_loss)
-            epoch_end_time =time.time()
+                update_chart(visdom=vis_, window_=epoch_plot, step_idx=epoch_idx, loc_loss=avg_epoch_loc_loss,
+                             conf_loss=avg_epoch_conf_loss)
+            epoch_end_time = time.time()
             epoch_spend_time = epoch_end_time - epoch_start_time
-            epoch_start_time =epoch_end_time
-            logging.info(f"*** Epoch: [{epoch_idx}], time: [{epoch_spend_time}] sec, avg_epoch_loc_loss: {avg_epoch_loc_loss}, avg_epoch_conf_loss: {avg_epoch_conf_loss}")
-            epoch_loc_loss =0
-            epoch_conf_loss =0
-            epoch_idx+=1
-        if iter_idx_ % SAVING_ITERS ==0:
+            epoch_start_time = epoch_end_time
+            logging.info(
+                f"*** Epoch: [{epoch_idx}], time: [{epoch_spend_time}] sec, avg_epoch_loc_loss: {avg_epoch_loc_loss}, avg_epoch_conf_loss: {avg_epoch_conf_loss}")
+            epoch_loc_loss = 0
+            epoch_conf_loss = 0
+            epoch_idx += 1
+        if iter_idx_ % SAVING_ITERS == 0:
+            # 测试当前模型在VOC2006_test上的maP.
+            network.mode = 'test'
+            test_metric.reset()
+            for test_iter_idx in range(test_data_count//parser.batch_size):  # 迭代测试集一轮即可
+                images,targets =next(test_data_iterator)
+                with torch.no_grad():
+                    output_ = network(images)
+                locations_list, classes_list,scores_list = output2maP(output_)
+                test_metric.update(pred_bboxes=locations_list,pred_labels=classes_list,pred_scores=scores_list,gt_bboxes=targets[:,:,:4],gt_labels=targets[:,:,4],gt_difficults=None)
+            aPs_maP_name,  aPs_maP= test_metric.get()
+            info_ ="\n".join(['\t'+k+" == "+str(v) for k,v in zip(aPs_maP_name,  aPs_maP)])
+            val_log_ =f'===[Iterations: {iter_idx_}, Validation: \n{info_}]'
+            if vali_logger:
+                vali_logger.info(val_log_)
+            else:
+                logging.info(val_log_)
+            update_vali_chart(vis_,window_=vali_plot,step_idx=iter_idx_, maPs=aPs_maP)
+            network.mode = 'train'
+            # 保存模型
             if os.path.isdir(parser.model_save_path):
-                torch.save(network.module.state_dict(), os.path.join(parser.model_save_path,'_'.join([parser.network, dataset.dataset_name, 'iter'+str(iter_idx_)])+'.pth'))
+                torch.save(network.module.state_dict(), os.path.join(parser.model_save_path, '_'.join(
+                    [parser.network, dataset.dataset_name, 'iter' + str(iter_idx_)]) + '.pth'))
             else:
                 logging.error('--model-save-path is not a directory, can`t save model!')
                 exit(-1)
     torch.save(network.module.state_dict(), os.path.join(parser.model_save_path, '_'.join(
-        [parser.network, dataset.dataset_name, 'iter'+str(iterations)]) + '.pth'))
+        [parser.network, dataset.dataset_name, 'iter' + str(iterations)]) + '.pth'))
     logging.info('finished !')
 
 

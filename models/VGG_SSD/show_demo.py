@@ -47,5 +47,6 @@ inputs_ = [img_transform(picture) for picture in pictures]
 inputs_ = torch.stack(inputs_)  # shapes:(batch_size,3,300,300)
 if torch.cuda.is_available():
     inputs_ = inputs_.cuda()
-outputs_ = net_vgg_ssd(inputs_)
+outputs_ = net_vgg_ssd(inputs_)  # output (已经nms了) shape: [batch_size,num_classes,(每一个类中的前top_n个),(概率值+四个点==5)]
+# 例如 (1,21,200,5)
 show_images_bounding_boxes(plt, real_pictures, outputs_, VOC_CLASSES)

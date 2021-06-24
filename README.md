@@ -26,4 +26,9 @@ inside of model directory
    
 4. you should download the pytorch parameters file postfix by ".pth" and move into **models/CvT/weights** like **项目结构.PNG**
    
-
+5. 图像物体检测benchmark(参照论文native-SSD)一般是将VOC2007—TEST的数据作为模型的测试集,训练集可有以下搭配:
+   - 1. 07:VOC2007 trainval 训练集验证集
+   - 2. 02+12 VOC2007 trainval + VOC2007 trainval 训练集验证集
+   - 3. 07+12+COCO 在 COCO trainval35k上预训练,然后在07+12上微调
+   
+6. 评价指标maP使用mxnet提供的VOC07MApMetric,将recall分成10等分,继而对所有precision取平均,在对类别去平均,具体参见 https://blog.csdn.net/u014203453/article/details/77598997

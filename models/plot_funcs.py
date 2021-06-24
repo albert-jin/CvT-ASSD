@@ -28,7 +28,7 @@ def show_images_bounding_boxes(plt, rgb_images, preds, labels, threshold =0.6):
         image_ =rgb_images[batch_idx]
         scale = torch.Tensor(image_.shape[1::-1]).repeat(2)  # 投射锚框与真实图片对应的尺度
         current_axis = plt.gca()
-        for class_idx in range(0,num_classes):
+        for class_idx in range(0,num_classes):  # class_idx 背景是0,1~20是物体对应20类
             top_n =0
             while top_n< total_n:
                 # +锚框
