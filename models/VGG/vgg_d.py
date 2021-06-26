@@ -10,7 +10,7 @@ class vgg_layers(object):  # model:vgg_d
         self.num_classes = num_classes
         self.vgg_base_layers = self.get_vgg_base_layers()
         self.vgg_extras_layers = self.get_vgg_extras_layers()
-        self.loc_layers, self.conf_layers =self.vgg_ssd_multi_box()
+        self.loc_layers, self.conf_layers = self.vgg_ssd_multi_box()
 
     def __call__(self):
         """get four layers:base_layers、extras_layers、loc_layers、conf_layers"""
@@ -39,7 +39,8 @@ class vgg_layers(object):  # model:vgg_d
                           padding=(1, 1)))
         return loc_layers, conf_layers
 
-    def get_vgg_base_layers(self, in_channels=3, use_batch_norm=False):  # 默认vgg 输入channels 是RGB 3通道
+    @staticmethod
+    def get_vgg_base_layers(in_channels=3, use_batch_norm=False):  # 默认vgg 输入channels 是RGB 3通道
         """
             列表顺序存储的VGG网络的网络层
         """
@@ -86,7 +87,8 @@ class vgg_layers(object):  # model:vgg_d
         layers.extend([pool5, conv6, nn.ReLU(inplace=True), conv7, nn.ReLU(inplace=True)])
         return layers
 
-    def get_vgg_extras_layers(self, in_channels=1024):  # 最后一层的通道默认1024
+    @staticmethod
+    def get_vgg_extras_layers(in_channels=1024):  # 最后一层的通道默认1024
         """
             在骨干网络末端追加几层卷积用来获取预测值并拼接
             项目根目录下 introduce/SSD从1X1X1024后面的8次卷积.png 了解更多.

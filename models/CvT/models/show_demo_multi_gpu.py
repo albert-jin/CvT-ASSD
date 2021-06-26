@@ -1,3 +1,4 @@
+
 import os
 import yaml
 from cvt import *
@@ -14,10 +15,14 @@ model_name =MODEL_FILE_PATH.split('/')[-1].split('.')[0]
 DATA_CONFIGS_PATH = '../../../data_preprocess/data_configs.yaml'
 MODEL_CONFIGS_PATH = '../configs/cvt-w24-384x384.yaml'
 
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1"
+gpu_devices =[0, 1]  # 指定你的所有GPUs
+
 logger = logging.getLogger('test for CvT in imageNet-mini 3000+ pictures.')
 log_dir_ ='./run_logs'
 logger.setLevel(logging.INFO)
-file_handle =logging.FileHandler(os.path.join(log_dir_,model_name+'_'+time.asctime().replace(' ','_').replace(':','_')+'_Validate.log'))
+file_handle =logging.FileHandler(os.path.join(log_dir_,model_name+'_'+time.asctime().replace(' ','_').replace(':','_')+'_Validate_multiGpus.log'))
 file_handle.setLevel(logging.NOTSET)
 file_handle.setFormatter(logging.Formatter('%(levelno)s - %(asctime)s - %(message)s'))
 logger.addHandler(file_handle)
@@ -44,6 +49,7 @@ cvt_network = ConvolutionVisionTransformer(model_configs=model_configs, mode='cl
                                            norm=LayerNorm_)
 cvt_network.load_weights(pretrained_model_file=MODEL_FILE_PATH)
 cvt_network.to(t.device('cuda'))
+cvt_network = t.nn.DataParallel(cvt_network, device_ids=gpu_devices, output_device=gpu_devices[0])
 cvt_network.eval()
 transformer = transforms.Compose([transforms.Resize(int(image_size[0] / 0.875), interpolation=interpolation),
                                   transforms.CenterCrop(image_size[0]),
@@ -51,7 +57,7 @@ transformer = transforms.Compose([transforms.Resize(int(image_size[0] / 0.875), 
                                   transforms.Normalize(mean=input_mean, std=input_std)])
 validate_loader = t.utils.data.DataLoader(
     dataset=datasets.ImageFolder(os.path.join(data_root, 'val'), transform=transformer),
-    batch_size=2, shuffle=False, pin_memory=True,  # num_workers=1, persistent_workers=True,  # batch_size不能太大
+    batch_size=16, shuffle=False, pin_memory=True,  # num_workers=1, persistent_workers=True,  # batch_size不能太大
     drop_last=False)
 criterion = CrossEntropyLoss().cuda()
 # 性能表现记录
@@ -68,7 +74,7 @@ try:
         batch_images, batch_labels = batch_images.cuda(non_blocking=True), batch_labels.cuda(non_blocking=True)
         with t.no_grad():
             outputs = cvt_network(batch_images)
-            outputs = outputs.reshape(-1,num_classes)
+            outputs = outputs.reshape(-1, num_classes)
             loss = criterion(outputs, batch_labels)
             loss_meter.update(loss.item(), batch_images.size(0))
             precision_1, precision_5 = get_accuracy(output=outputs, target=batch_labels, topk=(1, 5))
@@ -78,7 +84,6 @@ try:
         logger.info(f'\n[{time.asctime()}], Loss:{loss.item()}, Accuracy@1:{precision_1}, Accuracy@5:{precision_5}, '
                      f'duration-time:{"{:.5f}".format(iter_end_t-iter_start_t)}s.')
         iter_start_t = iter_end_t
-# Testing###########################
 except Exception as e:
     logger.error('Some Error occured when Testing: '+str(e.args))
 else:
@@ -89,5 +94,4 @@ finally:
                 'Accuracy@5 {:.3f}%\t'.format(loss_meter.avg, 100 - top1_precision_meter.avg,
                                               100 - top5_precision_meter.avg,
                                               top1_precision_meter.avg, top5_precision_meter.avg))
-
-
+# Testing###########################

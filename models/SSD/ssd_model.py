@@ -1,5 +1,4 @@
 import collections
-import logging
 
 import torch.nn as nn
 
