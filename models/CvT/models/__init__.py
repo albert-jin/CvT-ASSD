@@ -1,1 +1,2 @@
-from cvt_no_cls_token.cvt import ConvolutionVisionTransformer
+from CvT.models.cvt import ConvolutionVisionTransformer
+from utils import *

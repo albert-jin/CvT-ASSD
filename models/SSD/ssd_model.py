@@ -35,9 +35,9 @@ class SSD(nn.Module):
         try:
             PROIR_BOX_CONFIG = YAML_CONFIG['DATA'][dataset_name]['PRIOR_BOX']
             with torch.no_grad():
-                prior_boxes =torch.autograd.Variable(PriorBox(PROIR_BOX_CONFIG)())
+                prior_boxes = torch.autograd.Variable(PriorBox(PROIR_BOX_CONFIG)())
                 if torch.cuda.is_available():
-                    prior_boxes =prior_boxes.cuda()
+                    prior_boxes = prior_boxes.cuda()
                 return prior_boxes
         except Exception as e:
             logging.error(f'ERROR in directory/data_configs.yaml DATA/{dataset_name}/PRIOR_BOX .\t{e.args}')

@@ -172,15 +172,16 @@ def train():
     vali_logger =None
     if parser.logger_path:
         if os.path.isdir(parser.logger_path):
-            vali_logger =logging.getLogger('-'.join([parser.network, dataset.dataset_name, time.asctime().replace(' ','_')]))
-            handler = logging.FileHandler(parser.logger_path, encoding='UTF-8')
+            log_name ='-'.join([parser.network, dataset.dataset_name, time.asctime().replace(' ','_')])
+            vali_logger =logging.getLogger()
+            formatter = logging.Formatter('%(asctime)s - %(message)s')
+            handler_ = logging.FileHandler(os.path.join(parser.logger_path,log_name), encoding='UTF-8')
+            handler_.setLevel(logging.INFO)
+            handler_.setFormatter(formatter)
+            vali_logger.addHandler(handler_)
             console_ = logging.StreamHandler()
             console_.setLevel(logging.INFO)
-            handler.setLevel(logging.INFO)
-            formatter = logging.Formatter('%(asctime)s - %(message)s')
-            handler.setFormatter(formatter)
             console_.setFormatter(formatter)
-            vali_logger.addHandler(handler)
             vali_logger.addHandler(console_)
         else:
             logging.error('--logger-path is not a directory, can`t save logs!')
@@ -224,7 +225,7 @@ def train():
         if iter_idx_ % LOGGING_ITERS == 0:
             iter_end_time = time.time()
             iter_spend_time = iter_end_time - iter_start_time
-            logging.info('Iterations: [{0}]==[{1}], Epoch: [{2}], Speed: {3} pictures/sec, avg_iter_loc_loss: {4}, avg'
+            vali_logger.info('Iterations: [{0}]==[{1}], Epoch: [{2}], Speed: {3} pictures/sec, avg_iter_loc_loss: {4}, avg'
                          '_iter_conf_loss: {5}.'.format(iter_idx_ - LOGGING_ITERS + 1, iter_idx_, epoch_idx,
                                                         parser.batch_size
                                                         * LOGGING_ITERS / iter_spend_time,

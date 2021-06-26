@@ -8,6 +8,7 @@ MODEL:
   NAME: cls_cvt
   SPEC:
     INIT: 'trunc_norm'
+    NUM_CLASSES: 1000
     NUM_STAGES: 3
     PATCH_SIZE: [7, 3, 3]
     PATCH_STRIDE: [4, 2, 2]
@@ -49,16 +50,10 @@ CUDNN:
   BENCHMARK: true
   DETERMINISTIC: false
   ENABLED: true
-DATASET:
-  DATASET: 'imagenet'
-  DATA_FORMAT: 'jpg'
-  ROOT: 'C:\Users\Super-IdoI\Downloads\imagenet-mini\'
-  TEST_SET: 'val'
-  TRAIN_SET: 'train'
 TEST:
   BATCH_SIZE_PER_GPU: 32
   IMAGE_SIZE: [224, 224]
-  MODEL_FILE: 'D:\CvT_models\CvT-13-224x224-IN-1k.pth'
+  MODEL_FILE: ''
   INTERPOLATION: 3
 TRAIN:
   BATCH_SIZE_PER_GPU: 256
