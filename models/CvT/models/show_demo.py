@@ -9,10 +9,10 @@ from torchvision import datasets
 from torch.nn import CrossEntropyLoss
 from utils import AverageMeter, get_accuracy
 
-MODEL_FILE_PATH = '../weights/CvT-w24-384x384-IN-22k.pth'  # CvT-13-224x224-IN-1k.pth
-model_name =MODEL_FILE_PATH.split('/')[-1].split('.')[0]
+MODEL_FILE_PATH = '../weights/CvT-21-224x224-IN-1k.pth'  # CvT-w24-384x384-IN-22k.pth
+model_name = MODEL_FILE_PATH.split('/')[-1].split('.')[0]
 DATA_CONFIGS_PATH = '../../../data_preprocess/data_configs.yaml'
-MODEL_CONFIGS_PATH = '../configs/cvt-w24-384x384.yaml'
+MODEL_CONFIGS_PATH = '../configs/cvt-21-224x224.yaml'
 
 logger = logging.getLogger('test for CvT in imageNet-mini 3000+ pictures.')
 log_dir_ ='./run_logs'
@@ -80,7 +80,7 @@ try:
         iter_start_t = iter_end_t
 # Testing###########################
 except Exception as e:
-    logger.error('Some Error occured when Testing: '+str(e.args))
+    logger.error('Some Error occurred when Testing: '+str(e.args))
 else:
     logger.info(
         f'[{time.asctime()}]' + '=> finish validating. duration-time: {:.3f}s.'.format(time.time() - start_tick))

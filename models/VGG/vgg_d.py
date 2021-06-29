@@ -9,7 +9,7 @@ class vgg_layers(object):  # model:vgg_d
         super(vgg_layers, self).__init__()
         self.num_classes = num_classes
         self.vgg_base_layers = self.get_vgg_base_layers()
-        self.vgg_extras_layers = self.get_vgg_extras_layers()
+        self.vgg_extras_layers = self.get_vgg_extra_layers()
         self.loc_layers, self.conf_layers = self.vgg_ssd_multi_box()
 
     def __call__(self):
@@ -65,7 +65,7 @@ class vgg_layers(object):  # model:vgg_d
                   nn.ReLU(inplace=True),
                   nn.Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
                   nn.ReLU(inplace=True),
-                  nn.Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
+                  nn.Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),  # index:21
                   nn.ReLU(inplace=True),
                   nn.MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False),
                   nn.Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
@@ -83,12 +83,12 @@ class vgg_layers(object):  # model:vgg_d
             layers = layers_with_norm
         pool5 = nn.MaxPool2d(kernel_size=3, stride=1, padding=1, dilation=1, ceil_mode=False)
         conv6 = nn.Conv2d(512, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(6, 6), dilation=(6, 6))
-        conv7 = nn.Conv2d(1024, 1024, kernel_size=(1, 1), stride=(1, 1))
+        conv7 = nn.Conv2d(1024, 1024, kernel_size=(1, 1), stride=(1, 1))  # index:-2
         layers.extend([pool5, conv6, nn.ReLU(inplace=True), conv7, nn.ReLU(inplace=True)])
         return layers
 
     @staticmethod
-    def get_vgg_extras_layers(in_channels=1024):  # 最后一层的通道默认1024
+    def get_vgg_extra_layers(in_channels=1024):  # 最后一层的通道默认1024
         """
             在骨干网络末端追加几层卷积用来获取预测值并拼接
             项目根目录下 introduce/SSD从1X1X1024后面的8次卷积.png 了解更多.

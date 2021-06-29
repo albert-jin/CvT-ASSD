@@ -1,8 +1,8 @@
 import logging
+import os
 
 import yaml
-
-config_file = '../data_configs.yaml'
+config_file = os.path.join(os.path.abspath(os.path.dirname(__file__)),'../data_configs.yaml')
 with open(config_file, 'r') as yf:
     yaml_cfg = yaml.load(yf, Loader=yaml.FullLoader)
 try:

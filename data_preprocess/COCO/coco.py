@@ -71,12 +71,13 @@ class COCODetection(Dataset):
         assert os.path.exists(img_path), "图片不存在:%s" % img_path
         img = cv2.imread(img_path)
         height, width, _ = img.shape
-        target = self.coco_annotation_transform(target, width, height)
         if self.img_transform:
             target = np.array(target)
             img, boxes, labels = self.img_transform(img, target[:, :4], target[:, 4])
             img = img[:, :, (2, 1, 0)]  # =>RGB
             target = np.hstack((boxes, np.expand_dims(labels, axis=1)))
+        else:
+            target = self.coco_annotation_transform(target, width, height)
         return torch.from_numpy(img).permute(2, 0, 1), target, height, width
 
     def pull_image(self, index):
@@ -88,7 +89,8 @@ class COCODetection(Dataset):
         return cv2.imread(img_path)
 
     def pull_anno(self, index):
-        """给定下标,返回对应的标注 格式: [img_id, [(label1, bbox1-coords),(label2, bbox2-coords)...]] eg: ('001718', [('dog', (96, 13, 438, 332))])"""
+        """给定下标,返回对应的标注 格式: [img_id, [(label1, bbox1-coords),(label2, bbox2-coords)...]] eg: ('001718', [('dog', (96,
+        13, 438, 332))]) """
         img_id = self.ids[index]
         ann_ids = self.annotation.getAnnIds(imgIds=img_id)
         return self.annotation.loadAnns(ann_ids)

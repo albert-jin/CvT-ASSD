@@ -132,6 +132,7 @@ class VisionTransformer(Module):
                  depth=12, num_heads=12, mlp_ratio=4, qkv_bias=False, drop_rate=0., attn_drop_rate=0., drop_path_rate=0.
                  , activate_method=GELU, norm=LayerNorm, **kwargs):
         super(VisionTransformer, self).__init__()
+        self.out_channels = embedding_dim
         self.patch_embed = ConvEmbed(patch_size=patch_size, in_channels=in_channels, stride=patch_stride,
                                      padding=patch_padding, embedding_dim=embedding_dim, norm=norm)
         self.pos_drop = Dropout(p=drop_rate)
@@ -144,6 +145,10 @@ class VisionTransformer(Module):
                                         attn_drop=attn_drop_rate, drop_path=drop_path, activate_method=activate_method,
                                         norm=norm, **kwargs) for drop_path in dpr])
         self.apply(self.init_weights_trunc_normal)
+
+    @property
+    def get_out_channels(self):
+        return self.out_channels
 
     @staticmethod
     def init_weights_trunc_normal(layer):

@@ -4,7 +4,7 @@
 *https://github.com/albert-jin/CvT-SSD*
 
 ### project architecture:
-<img src="https://raw.githubusercontent.com/albert-jin/CvT-ASSD_private/main/introduce/%E9%A1%B9%E7%9B%AE%E7%BB%93%E6%9E%84.PNG?token=ANI4SHCR4GLWTPA6OZ5X55DA2FGIK" alt="显示失败(CvT权重文件示例)" width="250px">
+<img src="https://github.com/albert-jin/CvT-ASSD_private/raw/main/introduce/%E9%A1%B9%E7%9B%AE%E7%BB%93%E6%9E%84.PNG" alt="显示失败(CvT权重文件示例)" width="250px">
 
 ### Mentions
 
@@ -17,7 +17,8 @@
     - jupyter                   1.0.0                    pypi_0    pypi
     
 
-2. For training, an NVIDIA GPU is strongly recommended for speed.
+2. For training, an NVIDIA GPU is strongly recommended for speed. we use two NVIDIA GTX-1080TI,
+   but we recommend GPUs like Tesla-V100 /RTX-3090 for more memory
 
 
 3. Before you run the codes for self-study or reappearance the performance in this paper **"CvT-ASSD"**,

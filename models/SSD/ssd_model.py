@@ -9,7 +9,7 @@ class SSD(nn.Module):
     """SSD 端到端物体探测模型框架 默认feature-extract-base-network: VGG,可通过base_network指定其他骨干网络"""
 
     def __init__(self, base_network, extra_layers, loc_layers, conf_layers, num_classes=21, mode='train', size=300,
-                 l2Norm=None, l2NormIdx=None):  # vgg l2Norm=>L2Norm(512, 20) l2NormIdx=>23
+                 l2NormMaps: dict = None):
         super(SSD, self).__init__()
         self.base_network = nn.ModuleList(base_network)
         self.extra_layers = nn.ModuleList(extra_layers)
@@ -23,8 +23,10 @@ class SSD(nn.Module):
         '''size 为模型的输入长宽,只有在vgg_ssd里面需强制为300'''
         # assert size == 300, f'ERROR: You specified size {self.mode} currently only SSD300 (size=300) is supported!'
         # self.size = size
-        self.l2Norm = l2Norm
-        self.l2NormIdx = l2NormIdx
+        self.l2NormMaps = l2NormMaps
+        self.l2NormLayers = nn.ModuleList(self.l2NormMaps.values())  # 将l2Norm 加入模型中
+        if 22 in self.l2NormMaps:
+            self.l2Norm = self.l2NormMaps[22]
         # only use softmax &detector when in test mode.
         self.softmax = nn.Softmax(dim=-1)
         self.detector = Detector(self.num_classes, 200, 0.01, 0.45)
@@ -32,9 +34,9 @@ class SSD(nn.Module):
     def get_prior_boxes(self):
         dataset_name = 'VOC' if self.num_classes == 21 else "COCO"
         try:
-            PROIR_BOX_CONFIG = YAML_CONFIG['DATA'][dataset_name]['PRIOR_BOX']
+            PRIOR_BOX_CONFIG = YAML_CONFIG['DATA'][dataset_name]['PRIOR_BOX']
             with torch.no_grad():
-                prior_boxes = torch.autograd.Variable(PriorBox(PROIR_BOX_CONFIG)())
+                prior_boxes = PriorBox(PRIOR_BOX_CONFIG)()
                 if torch.cuda.is_available():
                     prior_boxes = prior_boxes.cuda()
                 return prior_boxes
@@ -47,13 +49,13 @@ class SSD(nn.Module):
         feature_maps = list()
         loc_pred = list()
         conf_pred = list()
-        if self.l2Norm and self.l2NormIdx:  # 指定了归一化层和位置
-            for idx in range(self.l2NormIdx):
-                x = self.base_network[idx](x)
-            feature_maps.append(self.l2Norm(x))
-            for idx in range(self.l2NormIdx, len(self.base_network)):
-                x = self.base_network[idx](x)
-            feature_maps.append(x)
+        if self.l2NormMaps:  # 指定了归一化层和位置
+            for idx, base_layer in enumerate(self.base_network):
+                x = base_layer(x)
+                if idx in self.l2NormMaps:
+                    feature_maps.append(self.l2NormMaps[idx](x))
+                elif idx == len(self.base_network)-1:
+                    feature_maps.append(x)
         else:  # 未指定归一化层则只使用最后一层
             for base_layer in self.base_network:
                 x = base_layer(x)
@@ -94,7 +96,8 @@ class SSD(nn.Module):
             logging.info('Loading weights into ssd model...')
             state_dict = torch.load(model_file, map_location=lambda storage, loc: storage)
             new_state_dict = collections.OrderedDict()
-            key_map = {'vgg': 'base_network', 'extras': 'extra_layers', 'loc': 'loc_layers', 'conf': 'conf_layers', 'L2Norm':'l2Norm'}
+            key_map = {'vgg': 'base_network', 'extras': 'extra_layers', 'loc': 'loc_layers', 'conf': 'conf_layers',
+                       'L2Norm': 'l2Norm'}
             for layer_name, params in state_dict.items():
                 change_flag = False
                 for key in key_map:

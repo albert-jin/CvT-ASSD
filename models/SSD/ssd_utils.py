@@ -1,12 +1,12 @@
 import logging
-from itertools import product as product
-from math import sqrt as sqrt
-
+from itertools import product
+from math import sqrt
+import os
 import torch
 import yaml
 from torch.nn import functional as F
 
-CONFIG_FILE = '../../data_preprocess/data_configs.yaml'
+CONFIG_FILE = os.path.join(os.path.abspath(os.path.dirname(__file__)),'../../data_preprocess/data_configs.yaml')
 try:
     with open(CONFIG_FILE, 'r') as yf:
         YAML_CONFIG = yaml.load(yf, Loader=yaml.FullLoader)
@@ -42,8 +42,8 @@ class PriorBox:
             mean = []
             for k, f in enumerate(self.FEATURE_MAPS):
                 for i, j in product(range(f), repeat=2):
-                    f_k = self.MIN_DIM / self.STEPS[k]
-                    cx = (j + 0.5) / f_k
+                    f_k = self.MIN_DIM / self.STEPS[k]  # 每一步的像素值
+                    cx = (j + 0.5) / f_k  # 除每步的像素值, cx是0~1之间的值
                     cy = (i + 0.5) / f_k
                     s_k = self.MIN_SIZES[k] / self.MIN_DIM
                     mean += [cx, cy, s_k, s_k]

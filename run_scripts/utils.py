@@ -3,7 +3,7 @@ import torch
 
 def collect_fn(batch_data):
     # return images ,targets 指定batch数据的整理方式
-    return torch.stack([inst_[0] for inst_ in batch_data]), list(map(lambda inst_: torch.FloatTensor(inst_[1]), batch_data))
+    return torch.stack([inst_[0] for inst_ in batch_data], 0), list(map(lambda inst_: torch.FloatTensor(inst_[1]), batch_data))
 
 
 def update_chart(visdom,window_, step_idx, loc_loss, conf_loss):

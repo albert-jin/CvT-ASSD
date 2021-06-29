@@ -61,8 +61,8 @@ class VOCDetection(data.Dataset):
         image = cv2.imread(self.img_path % path_id)  # 第index实例的图片
         height, width, channels = image.shape
         target = self.voc_annotation_transform(xml_root, width, height)  # 真实标签[位置的四个点, 类别下标]
-        # 是否对图片, 标记, 类别进行另外处理.
-        if self.img_transform:
+        if self.img_transform:  # 训练阶段, 对图像增广 => 是否对图片, 标记, 类别进行另外处理.
+            target = np.array(target)
             image, boxes, labels = self.img_transform(image, target[:, :4], target[:, 4])
             image = image[:, :, (2, 1, 0)]  # => RGB 还原图像格式
             target = np.hstack((boxes, np.expand_dims(labels, axis=1)))  # 还原标记格式

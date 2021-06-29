@@ -1,4 +1,4 @@
-from transformer_layers import *
+from .transformer_layers import *
 
 
 class ConvolutionVisionTransformer(Module):
@@ -50,7 +50,7 @@ class ConvolutionVisionTransformer(Module):
                 if not change_flag:
                     new_state_dict[layer_name] = params
             assert len(new_state_dict) == len(state_dict)  # 保证转换后参数大小一致
-            self.load_state_dict(new_state_dict)
+            self.load_state_dict(new_state_dict, strict=False)
             logging.info('Finished loading CvT weights.')
         else:
             logging.error('Sorry only .pth and .pkl files supported!')
@@ -64,3 +64,6 @@ class ConvolutionVisionTransformer(Module):
             return self.head(x)
         return x
 
+    def get_ssd_base_layers(self):
+        cvt_base_layers = [getattr(self, f'stage{idx}') for idx in range(self.num_stages)]
+        return cvt_base_layers
