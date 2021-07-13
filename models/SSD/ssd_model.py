@@ -24,7 +24,6 @@ class SSD(nn.Module):
         # assert size == 300, f'ERROR: You specified size {self.mode} currently only SSD300 (size=300) is supported!'
         # self.size = size
         self.l2NormMaps = l2NormMaps
-        self.l2NormLayers = nn.ModuleList(self.l2NormMaps.values())  # 将l2Norm 加入模型中
         if 22 in self.l2NormMaps:
             self.l2Norm = self.l2NormMaps[22]
         # only use softmax &detector when in test mode.
@@ -83,8 +82,8 @@ class SSD(nn.Module):
         """从文件导入模型参数"""
         if model_file.endswith('.pkl') or model_file.endswith('.pth'):
             logging.info('Loading weights into ssd model...')
-            self.load_state_dict(torch.load(model_file,
-                                            map_location=lambda storage, loc: storage))
+            params = torch.load(model_file, map_location=lambda storage, loc: storage)
+            self.load_state_dict(params)
             logging.info('Finished loading ssd weights.')
         else:
             logging.error('Sorry only .pth and .pkl files supported!')

@@ -25,11 +25,11 @@ def show_images_bounding_boxes(plt, rgb_images, preds, labels, threshold =0.6):
     total_n = detections.shape[2]
     cmaps = get_color_map(num_classes)
     for batch_idx in range(batch_size):  # 针对batch中每个实例
-        image_ =rgb_images[batch_idx]
+        image_ = rgb_images[batch_idx]
         scale = torch.Tensor(image_.shape[1::-1]).repeat(2)  # 投射锚框与真实图片对应的尺度
         current_axis = plt.gca()
-        for class_idx in range(0,num_classes):  # class_idx 背景是0,1~20是物体对应20类
-            top_n =0
+        for class_idx in range(0, num_classes):  # class_idx 背景是0,1~20是物体对应20类
+            top_n = 0
             while top_n< total_n:
                 # +锚框
                 score = detections[batch_idx, class_idx, top_n, 0]

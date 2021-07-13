@@ -121,8 +121,7 @@ def match(threshold, truth_boxes, priors_boxes, variances, labels, loc_t, conf_t
     :param idx:
     :return:
     """
-    priors_boxes = center2point(priors_boxes)
-    overlaps = jaccard(boxes_a=truth_boxes, boxes_b=priors_boxes)  # shape: (truth_boxes_num,priors_boxes_num)
+    overlaps = jaccard(boxes_a=truth_boxes, boxes_b=center2point(priors_boxes))  # shape: (truth_boxes_num,priors_boxes_num)
     best_prior_overlap, best_prior_idx = overlaps.max(1, keepdim=True)  # 找出和当前每个truth_box最重叠的priors_box
     best_prior_overlap.squeeze_(1)  # =>一维
     best_prior_idx.squeeze_(1)  # =>一维
@@ -237,6 +236,8 @@ class L2Norm(torch.nn.Module):
     def forward(self, x):
         norm = x.pow(2).sum(dim=1, keepdim=True).sqrt() + self.eps
         x = torch.div(x, norm)
+        if x.device != self.weight.device:
+            self.weight.data = self.weight.data.to(x.device)
         return self.weight.unsqueeze(0).unsqueeze(2).unsqueeze(3).expand_as(x) * x
 
 
@@ -281,14 +282,14 @@ class MultiBoxLoss(torch.nn.Module):
             conf_t = conf_t.cuda()
         loc_t = torch.autograd.Variable(loc_t, requires_grad=False)
         conf_t = torch.autograd.Variable(conf_t, requires_grad=False)
-        pos = torch.gt(conf_t,0)
+        pos = torch.gt(conf_t, 0)
         pos_idx = pos.unsqueeze(pos.dim()).expand_as(loc_data)
         loc_p = loc_data[pos_idx].view(-1, 4)
         loc_t = loc_t[pos_idx].view(-1, 4)
         loss_l = F.smooth_l1_loss(loc_p, loc_t, size_average=False)
         batch_conf = conf_data.view(-1, self.num_classes)
         loss_c = log_sum_exp(batch_conf) - batch_conf.gather(1, conf_t.view(-1, 1))
-        loss_c[pos] = 0
+        loss_c[pos.reshape(loss_c.shape)] = 0
         loss_c = loss_c.view(num, -1)
         _, loss_idx = loss_c.sort(1, descending=True)
         _, idx_rank = loss_idx.sort(1)
