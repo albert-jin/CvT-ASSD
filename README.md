@@ -1,7 +1,12 @@
 # CvT-SSD
 
-### code-website: 
+### original-code-website: 
 *https://github.com/albert-jin/CvT-SSD*
+
+### new-code-website: 
+*https://github.com/albert-jin/CvT-ASSD*
+
+### 为了符合开源号召,本项目于2021-7-12 才开源...
 
 ### project architecture:
 <img src="https://github.com/albert-jin/CvT-ASSD_private/raw/main/introduce/%E9%A1%B9%E7%9B%AE%E7%BB%93%E6%9E%84.PNG" alt="显示失败(CvT权重文件示例)" width="250px">
